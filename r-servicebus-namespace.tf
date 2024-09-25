@@ -7,7 +7,6 @@ resource "azurerm_servicebus_namespace" "servicebus_namespace" {
   capacity                     = var.namespace_parameters.sku != "Premium" ? 0 : var.namespace_parameters.capacity
   premium_messaging_partitions = var.namespace_parameters.sku != "Premium" ? 0 : var.namespace_parameters.premium_messaging_partitions
   local_auth_enabled           = var.namespace_parameters.local_auth_enabled
-  zone_redundant               = var.namespace_parameters.sku != "Premium" ? false : var.namespace_parameters.zone_redundant
   minimum_tls_version          = var.namespace_parameters.minimum_tls_version
 
   public_network_access_enabled = var.namespace_parameters.public_network_access_enabled
@@ -17,6 +16,24 @@ resource "azurerm_servicebus_namespace" "servicebus_namespace" {
     content {
       type         = var.identity_type
       identity_ids = var.identity_ids == "UserAssigned" ? var.identity_ids : null
+    }
+  }
+
+  dynamic "network_rule_set" {
+    for_each = var.network_rules_enabled ? [1] : []
+    content {
+      default_action                = var.default_firewall_action
+      public_network_access_enabled = var.namespace_parameters.public_network_access_enabled
+      trusted_services_allowed      = var.trusted_services_allowed
+      ip_rules                      = var.allowed_cidrs
+      dynamic "network_rules" {
+        for_each = var.subnet_ids != null ? var.subnet_ids : []
+        iterator = subnet
+        content {
+          subnet_id                            = subnet.value
+          ignore_missing_vnet_service_endpoint = false
+        }
+      }
     }
   }
 
